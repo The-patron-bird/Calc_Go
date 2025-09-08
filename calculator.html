@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Calculator</title>
+    <link rel="stylesheet" href="calculator.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app">
+        <div class="calculator" role="application" aria-label="Calculator">
+            <div class="display" aria-live="polite" aria-atomic="true">
+                <div class="expression" id="expression"></div>
+                <input class="result" id="result" type="text" inputmode="none" aria-label="Result" readonly>
+            </div>
+            <div class="controls">
+                <button class="btn action" data-action="clear" aria-label="Clear">AC</button>
+                <button class="btn action" data-action="backspace" aria-label="Backspace">⌫</button>
+                <button class="btn action" data-value="%" aria-label="Percent">%</button>
+                <button class="btn op" data-value="/" aria-label="Divide">÷</button>
+
+                <button class="btn" data-value="7">7</button>
+                <button class="btn" data-value="8">8</button>
+                <button class="btn" data-value="9">9</button>
+                <button class="btn op" data-value="*" aria-label="Multiply">×</button>
+
+                <button class="btn" data-value="4">4</button>
+                <button class="btn" data-value="5">5</button>
+                <button class="btn" data-value="6">6</button>
+                <button class="btn op" data-value="-" aria-label="Subtract">−</button>
+
+                <button class="btn" data-value="1">1</button>
+                <button class="btn" data-value="2">2</button>
+                <button class="btn" data-value="3">3</button>
+                <button class="btn op" data-value="+" aria-label="Add">+</button>
+
+                <button class="btn" data-value="0" style="grid-column: span 2;">0</button>
+                <button class="btn" data-value=".">.</button>
+                <button class="btn equals" data-action="equals" aria-label="Equals">=</button>
+            </div>
+        </div>
+        <div class="help">Tip: Use your keyboard. Enter to =, Backspace to delete, C to clear.</div>
+    </div>
+
+    <script>
+    (function() {
+        const expressionEl = document.getElementById('expression');
+        const resultEl = document.getElementById('result');
+        const buttons = document.querySelectorAll('.btn');
+
+        let expression = '';
+        let justEvaluated = false;
+
+        function updateDisplay() {
+            expressionEl.textContent = expression || '0';
+        }
+
+        function appendValue(value) {
+            if (justEvaluated && /[0-9.]/.test(value)) {
+                expression = '';
+            }
+            justEvaluated = false;
+            // Prevent multiple decimals in the current number chunk
+            if (value === '.') {
+                const lastNumber = expression.split(/[^0-9.]/).pop();
+                if (lastNumber && lastNumber.includes('.')) return;
+                if (!lastNumber) expression += '0';
+            }
+            // Convert consecutive operators (keep the latest)
+            if (/[+\-*/%]/.test(value)) {
+                expression = expression.replace(/([+\-*/%])$/, '');
+            }
+            expression += value;
+            updateDisplay();
+        }
+
+        function clearAll() {
+            expression = '';
+            resultEl.value = '';
+            justEvaluated = false;
+            updateDisplay();
+        }
+
+        function backspace() {
+            if (justEvaluated) {
+                clearAll();
+                return;
+            }
+            expression = expression.slice(0, -1);
+            updateDisplay();
+        }
+
+        function safeEval(exp) {
+            // Replace the unicode operators if any snuck in
+            exp = exp.replace(/÷/g, '/').replace(/×/g, '*').replace(/−/g, '-');
+            // Disallow invalid characters
+            if (!/^[-+*/%().\d\s]+$/.test(exp)) return NaN;
+            // Guard against leading operators
+            exp = exp.replace(/^([*/%])+/, '');
+            try {
+                // eslint-disable-next-line no-new-func
+                const fn = new Function('return ' + exp);
+                const val = fn();
+                return typeof val === 'number' && isFinite(val) ? val : NaN;
+            } catch (e) {
+                return NaN;
+            }
+        }
+
+        function evaluate() {
+            if (!expression) return;
+            // Replace trailing operator
+            const cleaned = expression.replace(/([+\-*/%])$/, '');
+            const value = safeEval(cleaned);
+            if (isNaN(value)) {
+                resultEl.value = 'Error';
+            } else {
+                resultEl.value = String(value);
+                expression = String(value);
+                justEvaluated = true;
+            }
+            updateDisplay();
+        }
+
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const value = btn.getAttribute('data-value');
+                const action = btn.getAttribute('data-action');
+                if (action === 'clear') return clearAll();
+                if (action === 'backspace') return backspace();
+                if (action === 'equals') return evaluate();
+                if (value) appendValue(value);
+            });
+        });
+
+        document.addEventListener('keydown', (e) => {
+            const key = e.key;
+            if ((/^[0-9]$/).test(key)) return appendValue(key);
+            if (key === '.') return appendValue('.');
+            if (['+', '-', '*', '/','%'].includes(key)) return appendValue(key);
+            if (key === 'Enter' || key === '=') { e.preventDefault(); return evaluate(); }
+            if (key === 'Backspace') return backspace();
+            if (key.toLowerCase() === 'c') return clearAll();
+            if (key === '(' || key === ')') return appendValue(key);
+        });
+
+        updateDisplay();
+    })();
+    </script>
+</body>
+</html>
+
